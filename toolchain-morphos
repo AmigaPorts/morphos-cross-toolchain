@@ -129,7 +129,7 @@ then
 	wget http://www.morphos-team.net/files/sdk-$SDKVERSION.lha -O sdk-$SDKVERSION.lha
 fi
 
-if [ ! -f "sdk-$SDKVERSION.lha" ]
+if [ ! -f "sdk-source-$SDKVERSION.tar.xz" ]
 then
 	wget http://www.morphos-team.net/files/src/sdk/sdk-source-$SDKVERSION.tar.xz -O sdk-source-$SDKVERSION.tar.xz
 fi
