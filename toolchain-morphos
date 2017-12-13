@@ -222,6 +222,9 @@ echo "Extracting SDK files."
 # Extract files for $PREFIX
 (cd "$TMPDIR" && lha -x "$CURDIR/$SDK" "morphossdk/sdk.pack" >/dev/null && xz -dcf morphossdk/sdk.pack | (cd $PREFIX && tar --transform "s,^Development/GG/,," -x "Development/GG/ppc-morphos" "Development/GG/include" "Development/GG/includestd" "Development/GG/os-include")) || exit 1
 
+ln -sf $PREFIX/os-include $PREFIX/ppc-morphos/sys-include
+ln -sf $PREFIX/include $PREFIX/ppc-morphos/include
+
 # Extract the Binutils/GCC source code.
 (cd "$TMPDIR" && tar -xf "$CURDIR/$SDKSOURCE" binutils $GCCVER)
 
