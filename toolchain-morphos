@@ -209,7 +209,7 @@ then
 	exit 1
 fi
 
-#trap "rm -rf \"$TMPDIR\"" exit
+trap "rm -rf \"$TMPDIR\"" exit
 
 if [ -d $PREFIX/include ] || [ -d $PREFIX/os-include ] || [ -d $PREFIX/includestd ] || [ -d $PREFIX/ppc-morphos ]
 then
@@ -345,8 +345,8 @@ EOF
 
 	test -z "$ERROR" && (cd "$TMPDIR/gcc4" && sed "s,../configure --target=ppc-morphos.*$,& MAKEINFO=missing," <Makefile >Makefile.new && mv Makefile.new Makefile) || ERROR=1
 
-	test -z "$ERROR" && (cd "$TMPDIR/gcc4" && make >>"$CURDIR/setup-cross-sdk.log" 2>&1) || ERROR=1
-	test -z "$ERROR" && (cd "$TMPDIR/gcc4" && make install >>"$CURDIR/setup-cross-sdk.log" 2>&1) || ERROR=1
+	test -z "$ERROR" && (cd "$TMPDIR/gcc4" && CC=gcc-5 CXX=g++-5 CPP=cpp-5 make >>"$CURDIR/setup-cross-sdk.log" 2>&1) || ERROR=1
+	test -z "$ERROR" && (cd "$TMPDIR/gcc4" && CC=gcc-5 CXX=g++-5 CPP=cpp-5 make install >>"$CURDIR/setup-cross-sdk.log" 2>&1) || ERROR=1
 
 	# Set up some GCC symlinks
 	ln -sf $PREFIX/bin/ppc-morphos-gcc-4 $PREFIX/bin/ppc-morphos-gcc
@@ -354,8 +354,8 @@ EOF
 else
 	cd "$TMPDIR/gcc5"
 	sed -i "s|/gg|$PREFIX|g" Makefile
-	test -z "$ERROR" && (cd "$TMPDIR/gcc5" && make >>"$CURDIR/setup-cross-sdk.log" 2>&1) || ERROR=1
-	test -z "$ERROR" && (cd "$TMPDIR/gcc5" && make install >>"$CURDIR/setup-cross-sdk.log" 2>&1) || ERROR=1
+	test -z "$ERROR" && (cd "$TMPDIR/gcc5" && CC=gcc-5 CXX=g++-5 CPP=cpp-5 make >>"$CURDIR/setup-cross-sdk.log" 2>&1) || ERROR=1
+	test -z "$ERROR" && (cd "$TMPDIR/gcc5" && CC=gcc-5 CXX=g++-5 CPP=cpp-5 make install >>"$CURDIR/setup-cross-sdk.log" 2>&1) || ERROR=1
 
 	# Set up some GCC symlinks
 	ln -sf $PREFIX/bin/ppc-morphos-gcc-5 $PREFIX/bin/ppc-morphos-gcc
