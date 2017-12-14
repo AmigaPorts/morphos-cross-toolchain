@@ -23,6 +23,7 @@ VER='1.5'
 SDKVERSION='20160605'
 PREFIX='/opt/ppc-morphos'
 GCCVER='gcc5'
+TYPE='morphos'
 gccarray=("gcc4\tgcc5")
 
 usage () {
@@ -31,6 +32,7 @@ usage () {
 	printf "Options:\n"
 	printf "  -p,  --prefix\t\t\tchoose the path for your prefix. Default: $PREFIX\n"
 	printf "  -g,  --gcc\t\t\tpick the version of gcc you want to install. Available versions: gcc4, gcc5 (default)\n"
+	printf "  -w,  -warpup\t\t\tinstall WarpOS toolchain\n"
 	printf "  -v,  --version\t\tdisplay the SDK-version of MorphOS and exit\n"
 	printf "  -h,  --help\t\t\tprint this help\n"
 	printf "\n"
@@ -101,11 +103,17 @@ while [ $i -le $ARGC ]; do
 			usage
 			exit 1
 			;;
+		"--force")
+			FORCE=y
+			;;
 		"-f")
 			FORCE=y
 			;;
-		"--force")
-			FORCE=y
+		"-warpup")
+			WARPUP=y
+			;;
+		"-w")
+			WARPUP=y
 			;;
 		"--help")
 			usage
@@ -191,9 +199,14 @@ then
 	exit 1
 fi
 
-echo "Using SDK version: $SDKVERSION."
+echo "Using SDK version: $SDKVERSION"
 echo "Installing in prefix: $PREFIX"
 echo "Chosen GCC version: $GCCVER"
+if [ ! -z "$WARPUP" ]
+then
+	echo "Installing WarpOS toolchain."
+	TYPE='warpos'
+fi
 
 if [ "`uname`" = "Darwin" ]
 then
@@ -209,7 +222,7 @@ then
 	exit 1
 fi
 
-trap "rm -rf \"$TMPDIR\"" exit
+#trap "rm -rf \"$TMPDIR\"" exit
 
 if [ -d $PREFIX/include ] || [ -d $PREFIX/os-include ] || [ -d $PREFIX/includestd ] || [ -d $PREFIX/ppc-morphos ]
 then
@@ -233,7 +246,11 @@ echo "Building binutils."
 cd "$TMPDIR" && chmod -R 777 binutils
 
 # Fortify on Ubuntu, which is enabled by default, detects phantom errors which according to Valgrind don't exist. Adding -U_FORTIFY_SOURCE to avoid this.
-(cd "$TMPDIR/binutils" && sed -i 's|s/@prefix@/\\/gg/|s\|@prefix@\|'$PREFIX'\||g' configall 2>&1) || ERROR=1
+(cd "$TMPDIR/binutils" && sed -i 's|s/@prefix@/\\/gg/|s\|@prefix@\|'$PREFIX'\||g' configall && sed -i 's|/gg|'$PREFIX'|g' configall 2>&1) || ERROR=1
+if [ ! -z "$WARPUP" ]
+then
+	(cd "$TMPDIR/binutils" && sed -i 's|--target=ppc-morphos|--target=ppc-morphos --program-prefix=ppc-warpos-|g' configall 2>&1) || ERROR=1
+fi
 (cd "$TMPDIR/binutils" && CFLAGS="-m32 -O2 -U_FORTIFY_SOURCE" ./configall >"$CURDIR/setup-cross-sdk.log" 2>&1) || ERROR=1
 
 # Are we Mac OS X? Apply some dubious patches to try to get this to build...
@@ -282,11 +299,11 @@ then
 fi
 
 # Set up required Binutils symlinks
-mkdir -p $PREFIX/ppc-morphos/bin
+mkdir -p $PREFIX/ppc-$TYPE/bin
 
 for i in ar as ld nm objdump ranlib
 do
-	ln -s $PREFIX/bin/ppc-morphos-$i $PREFIX/ppc-morphos/bin/$i
+	ln -s $PREFIX/bin/ppc-$TYPE-$i $PREFIX/ppc-$TYPE/bin/$i
 done
 
 # Build GCC 4
@@ -357,12 +374,21 @@ EOF
 else
 	cd "$TMPDIR/gcc5"
 	sed -i "s|/gg|$PREFIX|g" Makefile
+	sed -i "s|program-prefix=ppc-morphos-|program-prefix=ppc-"$TYPE"-|g" Makefile
 	test -z "$ERROR" && (cd "$TMPDIR/gcc5" && CC=gcc-5 CXX=g++-5 CPP=cpp-5 make >>"$CURDIR/setup-cross-sdk.log" 2>&1) || ERROR=1
 	test -z "$ERROR" && (cd "$TMPDIR/gcc5" && CC=gcc-5 CXX=g++-5 CPP=cpp-5 make install >>"$CURDIR/setup-cross-sdk.log" 2>&1) || ERROR=1
 
-	# Set up some GCC symlinks
-	ln -sf $PREFIX/bin/ppc-morphos-gcc-5 $PREFIX/bin/ppc-morphos-gcc
-	ln -sf $PREFIX/bin/ppc-morphos-g++-5 $PREFIX/bin/ppc-morphos-g++
+	if [ -z "$WARPUP" ]
+	then
+		# Set up some GCC symlinks
+		ln -sf $PREFIX/bin/ppc-morphos-gcc-5 $PREFIX/bin/ppc-morphos-gcc
+		ln -sf $PREFIX/bin/ppc-morphos-g++-5 $PREFIX/bin/ppc-morphos-g++
+	else
+		printf "#!/bin/sh\nppc-warpos-gcc-5 --specs=/opt/ppc-warpos/lib/gcc-lib/ppc-morphos/5.3.0/specs \${@}" > $PREFIX/bin/ppc-warpos-gcc
+		chmod a+x $PREFIX/bin/ppc-warpos-gcc
+		printf "#!/bin/sh\nppc-warpos-g++-5 --specs=/opt/ppc-warpos/lib/gcc-lib/ppc-morphos/5.3.0/specs \${@}" > $PREFIX/bin/ppc-warpos-g++
+		chmod a+x $PREFIX/bin/ppc-warpos-g++
+	fi
 fi
 
 if [ ! -z "$ERROR" ]
