@@ -222,7 +222,7 @@ then
 	exit 1
 fi
 
-#trap "rm -rf \"$TMPDIR\"" exit
+trap "rm -rf \"$TMPDIR\"" exit
 
 if [ -d $PREFIX/include ] || [ -d $PREFIX/os-include ] || [ -d $PREFIX/includestd ] || [ -d $PREFIX/ppc-morphos ]
 then
