@@ -32,7 +32,7 @@ usage () {
 	printf "Options:\n"
 	printf "  -p,  --prefix\t\t\tchoose the path for your prefix. Default: $PREFIX\n"
 	printf "  -g,  --gcc\t\t\tpick the version of gcc you want to install. Available versions: gcc4, gcc5 (default)\n"
-	printf "  -w,  -warpup\t\t\tinstall WarpOS toolchain\n"
+	printf "  -w,  --warpup\t\t\tinstall WarpOS toolchain\n"
 	printf "  -v,  --version\t\tdisplay the SDK-version of MorphOS and exit\n"
 	printf "  -h,  --help\t\t\tprint this help\n"
 	printf "\n"
@@ -109,7 +109,7 @@ while [ $i -le $ARGC ]; do
 		"-f")
 			FORCE=y
 			;;
-		"-warpup")
+		"--warpup")
 			WARPUP=y
 			;;
 		"-w")
