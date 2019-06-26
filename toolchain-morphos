@@ -1,10 +1,14 @@
 #!/bin/bash
 #
-# setup-cross-env.sh version 1.5 Copyright 2013-2016 Mark Olsen, 2017 Marlon Beijer
+# setup-cross-env.sh version 1.6 Copyright 2013-2016 Mark Olsen, 2017-2018 Marlon Beijer
 #
 # Script to automatically set up a MorphOS cross compiler environment on Linux (and other Unix-oids).
 #
 # History:
+# 1.6 - 20180815
+#  - Update to latest MorphOS SDK
+#       Marlon Beijer
+#
 # 1.5 - 20171212
 #  - Made it so you can choose which gcc-version to use, and which prefix to install in.
 #	Marlon Beijer
@@ -20,18 +24,18 @@
 #
 
 VER='1.5'
-SDKVERSION='20160605'
+SDKVERSION='20180428'
 PREFIX='/opt/ppc-morphos'
 GCCVER='gcc5'
 TYPE='morphos'
-gccarray=("gcc4\tgcc5")
+gccarray=("gcc4\tgcc5\tgcc6")
 
 usage () {
 	printf "MorphOS Cross Toolchain v$VER\n"
 	printf "Usage: $0 [OPTION]...\n\n"
 	printf "Options:\n"
 	printf "  -p,  --prefix\t\t\tchoose the path for your prefix. Default: $PREFIX\n"
-	printf "  -g,  --gcc\t\t\tpick the version of gcc you want to install. Available versions: gcc4, gcc5 (default)\n"
+	printf "  -g,  --gcc\t\t\tpick the version of gcc you want to install. Available versions: gcc4, gcc5, gcc6 (default)\n"
 	printf "  -w,  --warpup\t\t\tinstall WarpOS toolchain\n"
 	printf "  -v,  --version\t\tdisplay the SDK-version of MorphOS and exit\n"
 	printf "  -h,  --help\t\t\tprint this help\n"
@@ -40,7 +44,7 @@ usage () {
 }
 
 # Picking GCC version
-gcchelp () { printf "Available GCC versions:\n * gcc4\n * gcc5 (default)\n"; }
+gcchelp () { printf "Available GCC versions:\n * gcc4\n * gcc5\n * gcc6 (default)\n"; }
 
 pickgcc () {
 	if [ -z "$1" ]; then
@@ -212,7 +216,7 @@ if [ "`uname`" = "Darwin" ]
 then
 	TMPDIR="`mktemp -d -t setupcrosssdk`"
 else
-	TMPDIR="`mktemp -d`"
+	TMPDIR="/home/marlon/tmp/Programming/Amiga/Tools/morphos-cross-toolchain/tmp" #"`mktemp -d`"
 fi
 CURDIR="`pwd`"
 
