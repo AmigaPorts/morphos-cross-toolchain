@@ -406,7 +406,7 @@ elif [ $GCCVER == "gcc6" ]
 then
 	cp $CURDIR/gcc-6-morphos.diff $TMPDIR/
 	sed -i "s|/gg|$PREFIX|g" $TMPDIR/gcc-6-morphos.diff
-	sed -i "s|ppc-morphos|program-prefix=ppc-"$TYPE"|g" $TMPDIR/gcc-6-morphos.diff
+	sed -i "s|ppc-morphos|ppc-$TYPE|g" $TMPDIR/gcc-6-morphos.diff
 	(cd "$TMPDIR/gcc-6.5.0" && patch -p1 < $TMPDIR/gcc-6-morphos.diff)
 	mkdir $TMPDIR/build
 	test -z "$ERROR" && (cd $TMPDIR/build && ../gcc-6.5.0/configure --target=ppc-$TYPE --with-plugin-ld=no --enable-languages=c,c++,objc,obj-c++ --prefix=$PREFIX --with-sysroot=$PREFIX --libexecdir=$PREFIX/lib --oldincludedir=$PREFIX/include --program-prefix=ppc-$TYPE- --enable-threads=morphos --disable-bootstrap --with-pkgversion=GCC/MorphOS --with-bugurl=http://www.morphos-team.net/ >>"$CURDIR/setup-cross-sdk.log" 2>&1) || ERROR=1
