@@ -1,10 +1,14 @@
 #!/bin/bash
 #
-# setup-cross-env.sh version 1.6 Copyright 2013-2016 Mark Olsen, 2017-2018 Marlon Beijer
+# setup-cross-env.sh version 1.6 Copyright 2013-2016 Mark Olsen, 2017-2019 Marlon Beijer
 #
 # Script to automatically set up a MorphOS cross compiler environment on Linux (and other Unix-oids).
 #
 # History:
+# 1.7 - 20190627
+#  - Fix gcc6 toolchain install
+#       Marlon Beijer
+#
 # 1.6 - 20180815
 #  - Update to latest MorphOS SDK
 #       Marlon Beijer
@@ -23,15 +27,16 @@
 #	Mark Olsen
 #
 
-VER='1.5'
+VER='1.7'
 SDKVERSION='20180428'
-PREFIX='/opt/ppc-morphos'
-GCCVER='gcc5'
+GCCVER='gcc6'
 TYPE='morphos'
+PREFIX="/opt/ppc-$TYPE"
+CURDIR=$PWD
 gccarray=("gcc4\tgcc5\tgcc6")
 
 usage () {
-	printf "MorphOS Cross Toolchain v$VER\n"
+	printf "MorphOS/WarpOS Cross Toolchain v$VER\n"
 	printf "Usage: $0 [OPTION]...\n\n"
 	printf "Options:\n"
 	printf "  -p,  --prefix\t\t\tchoose the path for your prefix. Default: $PREFIX\n"
@@ -127,7 +132,7 @@ while [ $i -le $ARGC ]; do
 	i=$((i+1))
 done
 
-for i in bison bzip2 flex gcc-5 ld lha m4 make makeinfo patch xz wget
+for i in bison bzip2 flex gcc ld lha m4 make makeinfo patch xz wget
 do
 	if [ -z "`which $i`" ]
 	then
@@ -146,10 +151,12 @@ then
 	wget http://www.morphos-team.net/files/src/sdk/sdk-source-$SDKVERSION.tar.xz -O sdk-source-$SDKVERSION.tar.xz
 fi
 
-if [ ! -d $PREFIX ]
+if [ -d $PREFIX ]
 then
-	echo "$PREFIX doesn't exist. Please create it and chown it to your user."
+	echo "$PREFIX already exist. Please remove or pick another prefix path."
 	ERROR=1
+else
+	mkdir -p ${PREFIX}
 fi
 
 if [ ! -O $PREFIX ]
@@ -160,14 +167,9 @@ fi
 
 if [ ! -w $PREFIX ]
 then
-	echo "$PREFIX isn't writable by you. Please chmod u+w $PREFIX";
-	ERROR=1;
-fi
-
-if ! echo $PATH | grep -q $PREFIX/bin
-then
-	echo "$PREFIX/bin isn't in your \$PATH. Please add it by typing \"export PATH=\$PATH:$PREFIX/bin\"."
-	ERROR=1
+	#echo "$PREFIX isn't writable by you. Please chmod u+w $PREFIX";
+	#ERROR=1;
+	chmod u+w $PREFIX
 fi
 
 if [ -z "$FORCE" ]
@@ -216,9 +218,8 @@ if [ "`uname`" = "Darwin" ]
 then
 	TMPDIR="`mktemp -d -t setupcrosssdk`"
 else
-	TMPDIR="/home/marlon/tmp/Programming/Amiga/Tools/morphos-cross-toolchain/tmp" #"`mktemp -d`"
+	TMPDIR="`mktemp -d`"
 fi
-CURDIR="`pwd`"
 
 if [ -z "$TMPDIR" ]
 then
@@ -242,8 +243,15 @@ echo "Extracting SDK files."
 ln -sf $PREFIX/os-include $PREFIX/ppc-morphos/sys-include
 ln -sf $PREFIX/include $PREFIX/ppc-morphos/include
 
-# Extract the Binutils/GCC source code.
-(cd "$TMPDIR" && tar -xf "$CURDIR/$SDKSOURCE" binutils $GCCVER)
+if [ $GCCVER == "gcc6" ]
+then
+	(cd "$TMPDIR" && wget ftp://ftp.fu-berlin.de/unix/languages/gcc/releases/gcc-6.5.0/gcc-6.5.0.tar.gz -O gcc6.tgz)
+	(cd "$TMPDIR" && tar -xf "$CURDIR/$SDKSOURCE" binutils)
+	(cd "$TMPDIR" && tar -xf gcc6.tgz)
+else
+	# Extract the Binutils/GCC source code.
+	(cd "$TMPDIR" && tar -xf "$CURDIR/$SDKSOURCE" binutils $GCCVER)
+fi
 
 # Build Binutils
 echo "Building binutils."
@@ -375,7 +383,8 @@ EOF
 	# Set up some GCC symlinks
 	ln -sf $PREFIX/bin/ppc-morphos-gcc-4 $PREFIX/bin/ppc-morphos-gcc
 	ln -sf $PREFIX/bin/ppc-morphos-g++-4 $PREFIX/bin/ppc-morphos-g++
-else
+elif [ $GCCVER == "gcc5" ]
+then
 	cd "$TMPDIR/gcc5"
 	sed -i "s|/gg|$PREFIX|g" Makefile
 	sed -i "s|program-prefix=ppc-morphos-|program-prefix=ppc-"$TYPE"-|g" Makefile
@@ -393,7 +402,22 @@ else
 		printf "#!/bin/sh\nppc-warpos-g++-5 --specs=/opt/ppc-warpos/lib/gcc-lib/ppc-morphos/5.3.0/specs \${@}" > $PREFIX/bin/ppc-warpos-g++
 		chmod a+x $PREFIX/bin/ppc-warpos-g++
 	fi
+elif [ $GCCVER == "gcc6" ]
+then
+	cp $CURDIR/gcc-6-morphos.diff $TMPDIR/
+	sed -i "s|/gg|$PREFIX|g" $TMPDIR/gcc-6-morphos.diff
+	sed -i "s|ppc-morphos|program-prefix=ppc-"$TYPE"|g" $TMPDIR/gcc-6-morphos.diff
+	(cd "$TMPDIR/gcc-6.5.0" && patch -p1 < $TMPDIR/gcc-6-morphos.diff)
+	mkdir $TMPDIR/build
+	test -z "$ERROR" && (cd $TMPDIR/build && ../gcc-6.5.0/configure --target=ppc-$TYPE --with-plugin-ld=no --enable-languages=c,c++,objc,obj-c++ --prefix=$PREFIX --with-sysroot=$PREFIX --libexecdir=$PREFIX/lib --oldincludedir=$PREFIX/include --program-prefix=ppc-$TYPE- --enable-threads=morphos --disable-bootstrap --with-pkgversion=GCC/MorphOS --with-bugurl=http://www.morphos-team.net/ >>"$CURDIR/setup-cross-sdk.log" 2>&1) || ERROR=1
+	test -z "$ERROR" && (cd $TMPDIR/build && make -j8 >>"$CURDIR/setup-cross-sdk.log" 2>&1) || ERROR=1
+	test -z "$ERROR" && (cd $TMPDIR/build && make install -j8 >>"$CURDIR/setup-cross-sdk.log" 2>&1) || ERROR=1
+else
+	echo "Unknown gcc version"
+	ERROR=1
 fi
+
+rm -rf $PREFIX/bin/ar $PREFIX/as $PREFIX/ld $PREFIX/nm $PREFIX/objdump $PREFIX/ranlib $PREFIX/strip
 
 if [ ! -z "$ERROR" ]
 then
