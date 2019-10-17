@@ -228,8 +228,7 @@ if [ "`uname`" = "Darwin" ]
 then
 	TMPDIR="`mktemp -d -t setupcrosssdk`"
 else
-	TMPDIR="$CURDIR/tmp" #"`mktemp -d`"
-	mkdir -p $TMPDIR
+	TMPDIR="`mktemp -d`"
 fi
 
 if [ -z "$TMPDIR" ]
@@ -238,7 +237,7 @@ then
 	exit 1
 fi
 
-#trap "rm -rf \"$TMPDIR\"" exit
+trap "rm -rf \"$TMPDIR\"" exit
 
 if [ -d $PREFIX/include ] || [ -d $PREFIX/os-include ] || [ -d $PREFIX/includestd ] || [ -d $PREFIX/ppc-morphos ]
 then
@@ -268,7 +267,8 @@ fi
 if [ $GCCVER == "gcc6" ]
 then
 	(cd "$CURDIR" && wget -c ftp://ftp.fu-berlin.de/unix/languages/gcc/releases/gcc-6.5.0/gcc-6.5.0.tar.gz -O gcc6.tgz)
-	(cd "$TMPDIR" && tar -xf "$CURDIR/$SDKSOURCE" binutils)
+	(cd "$TMPDIR" && tar -xf "$CURDIR/$SDKSOURCE" sdk-source/binutils)
+	(cd "$TMPDIR" && mv -f sdk-source/binutils binutils)
 	(cd "$TMPDIR" && tar -xf "$CURDIR/gcc6.tgz")
 else
 	# Extract the Binutils/GCC source code.
