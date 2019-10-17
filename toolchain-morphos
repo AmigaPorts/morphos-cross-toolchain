@@ -5,6 +5,11 @@
 # Script to automatically set up a MorphOS cross compiler environment on Linux (and other Unix-oids).
 #
 # History:
+# 1.8 - 20191015
+#  - Update to latest MorphOS SDK
+#  - Set default gcc version to gcc9
+#	Marlon Beijer
+#
 # 1.7 - 20190627
 #  - Fix gcc6 toolchain install
 #       Marlon Beijer
@@ -27,20 +32,21 @@
 #	Mark Olsen
 #
 
-VER='1.7'
-SDKVERSION='20180428'
-GCCVER='gcc6'
+VER='1.8'
+SDKVERSION='20191006'
+WOSSDK='gcc-mos2wos-lite'
+GCCVER='gcc9'
 TYPE='morphos'
 PREFIX="/opt/ppc-$TYPE"
 CURDIR=$PWD
-gccarray=("gcc4\tgcc5\tgcc6")
+gccarray=("gcc4\tgcc5\tgcc6\tgcc7\tgcc8\gcc9")
 
 usage () {
 	printf "MorphOS/WarpOS Cross Toolchain v$VER\n"
 	printf "Usage: $0 [OPTION]...\n\n"
 	printf "Options:\n"
 	printf "  -p,  --prefix\t\t\tchoose the path for your prefix. Default: $PREFIX\n"
-	printf "  -g,  --gcc\t\t\tpick the version of gcc you want to install. Available versions: gcc4, gcc5, gcc6 (default)\n"
+	printf "  -g,  --gcc\t\t\tpick the version of gcc you want to install. Available versions: gcc4, gcc5, gcc6, gcc7, gcc8, gcc9 (default)\n"
 	printf "  -w,  --warpup\t\t\tinstall WarpOS toolchain\n"
 	printf "  -v,  --version\t\tdisplay the SDK-version of MorphOS and exit\n"
 	printf "  -h,  --help\t\t\tprint this help\n"
@@ -49,7 +55,7 @@ usage () {
 }
 
 # Picking GCC version
-gcchelp () { printf "Available GCC versions:\n * gcc4\n * gcc5\n * gcc6 (default)\n"; }
+gcchelp () { printf "Available GCC versions:\n * gcc4\n * gcc5\n * gcc6\n * gcc7\n * gcc8\n * gcc9 (default)\n"; }
 
 pickgcc () {
 	if [ -z "$1" ]; then
@@ -141,14 +147,22 @@ do
 	fi
 done
 
+if [ ! -z "$WARPUP" ]
+then
+	echo "Installing WarpOS toolchain."
+	TYPE='warpos'
+
+	wget -c http://aminet.net/dev/gcc/$WOSSDK.lha -O $WOSSDK.lha
+fi
+
 if [ ! -f "sdk-$SDKVERSION.lha" ]
 then
-	wget http://www.morphos-team.net/files/sdk-$SDKVERSION.lha -O sdk-$SDKVERSION.lha
+	wget -c http://www.morphos-team.net/files/sdk-$SDKVERSION.lha -O sdk-$SDKVERSION.lha
 fi
 
 if [ ! -f "sdk-source-$SDKVERSION.tar.xz" ]
 then
-	wget http://www.morphos-team.net/files/src/sdk/sdk-source-$SDKVERSION.tar.xz -O sdk-source-$SDKVERSION.tar.xz
+	wget -c http://www.morphos-team.net/files/src/sdk/sdk-source-$SDKVERSION.tar.xz -O sdk-source-$SDKVERSION.tar.xz
 fi
 
 if [ -d $PREFIX ]
@@ -208,17 +222,14 @@ fi
 echo "Using SDK version: $SDKVERSION"
 echo "Installing in prefix: $PREFIX"
 echo "Chosen GCC version: $GCCVER"
-if [ ! -z "$WARPUP" ]
-then
-	echo "Installing WarpOS toolchain."
-	TYPE='warpos'
-fi
+
 
 if [ "`uname`" = "Darwin" ]
 then
 	TMPDIR="`mktemp -d -t setupcrosssdk`"
 else
-	TMPDIR="`mktemp -d`"
+	TMPDIR="$CURDIR/tmp" #"`mktemp -d`"
+	mkdir -p $TMPDIR
 fi
 
 if [ -z "$TMPDIR" ]
@@ -227,7 +238,7 @@ then
 	exit 1
 fi
 
-trap "rm -rf \"$TMPDIR\"" exit
+#trap "rm -rf \"$TMPDIR\"" exit
 
 if [ -d $PREFIX/include ] || [ -d $PREFIX/os-include ] || [ -d $PREFIX/includestd ] || [ -d $PREFIX/ppc-morphos ]
 then
@@ -236,72 +247,47 @@ then
 fi
 
 echo "Extracting SDK files."
+if [ ! -z "$WARPUP" ]
+then
+	(cd "$TMPDIR" && lha -x "$CURDIR/$WOSSDK.lha" && tar xvf $WOSSDK.tar) || exit 1
+	cp -fr $TMPDIR/GG/ppc-warpos $PREFIX/
+	mkdir -p $PREFIX/bin $PREFIX/lib $PREFIX/include $PREFIX/usr/include $PREFIX/usr/lib
+	sed -i "s|/gg|$PREFIX|g" $TMPDIR/GG/bin/sdl-config
+	sed -i "s|/gg|$PREFIX|g" $TMPDIR/GG/bin/libpng-config
+	sed -i "s|/gg|$PREFIX|g" $TMPDIR/GG/bin/freetype-config
+	sed -i "s|/gg|$PREFIX|g" $TMPDIR/GG/bin/libmikmod-config
+	cp -fr $TMPDIR/GG/bin/* $PREFIX/bin
+	ln -sf $PREFIX/ppc-warpos $PREFIX/ppc-morphos
+else
+	# Extract files for $PREFIX
+	(cd "$TMPDIR" && lha -x "$CURDIR/$SDK" "morphossdk/sdk.pack" >/dev/null && xz -dcf morphossdk/sdk.pack | (cd $PREFIX && tar --transform "s,^Development/gg/,," -x "Development/gg/ppc-morphos" "Development/gg/include" "Development/gg/includestd" "Development/gg/os-include")) || exit 1
 
-# Extract files for $PREFIX
-(cd "$TMPDIR" && lha -x "$CURDIR/$SDK" "morphossdk/sdk.pack" >/dev/null && xz -dcf morphossdk/sdk.pack | (cd $PREFIX && tar --transform "s,^Development/GG/,," -x "Development/GG/ppc-morphos" "Development/GG/include" "Development/GG/includestd" "Development/GG/os-include")) || exit 1
-
-ln -sf $PREFIX/os-include $PREFIX/ppc-morphos/sys-include
-ln -sf $PREFIX/include $PREFIX/ppc-morphos/include
-
+	ln -sf $PREFIX/os-include $PREFIX/ppc-morphos/sys-include
+	ln -sf $PREFIX/include $PREFIX/ppc-morphos/include
+fi
 if [ $GCCVER == "gcc6" ]
 then
-	(cd "$TMPDIR" && wget ftp://ftp.fu-berlin.de/unix/languages/gcc/releases/gcc-6.5.0/gcc-6.5.0.tar.gz -O gcc6.tgz)
+	(cd "$CURDIR" && wget -c ftp://ftp.fu-berlin.de/unix/languages/gcc/releases/gcc-6.5.0/gcc-6.5.0.tar.gz -O gcc6.tgz)
 	(cd "$TMPDIR" && tar -xf "$CURDIR/$SDKSOURCE" binutils)
-	(cd "$TMPDIR" && tar -xf gcc6.tgz)
+	(cd "$TMPDIR" && tar -xf "$CURDIR/gcc6.tgz")
 else
 	# Extract the Binutils/GCC source code.
-	(cd "$TMPDIR" && tar -xf "$CURDIR/$SDKSOURCE" binutils $GCCVER)
+	(cd "$TMPDIR" && rm -rf binutils $GCCVER && tar -xf "$CURDIR/$SDKSOURCE" sdk-source/binutils sdk-source/$GCCVER)
+	(cd "$TMPDIR" && mv -f sdk-source/binutils binutils && mv -f sdk-source/$GCCVER $GCCVER)
 fi
 
 # Build Binutils
 echo "Building binutils."
 cd "$TMPDIR" && chmod -R 777 binutils
 
-# Fortify on Ubuntu, which is enabled by default, detects phantom errors which according to Valgrind don't exist. Adding -U_FORTIFY_SOURCE to avoid this.
-(cd "$TMPDIR/binutils" && sed -i 's|s/@prefix@/\\/gg/|s\|@prefix@\|'$PREFIX'\||g' configall && sed -i 's|/gg|'$PREFIX'|g' configall 2>&1) || ERROR=1
-if [ ! -z "$WARPUP" ]
-then
-	(cd "$TMPDIR/binutils" && sed -i 's|--target=ppc-morphos|--target=ppc-morphos --program-prefix=ppc-warpos-|g' configall 2>&1) || ERROR=1
-fi
-(cd "$TMPDIR/binutils" && CFLAGS="-m32 -O2 -U_FORTIFY_SOURCE" ./configall >"$CURDIR/setup-cross-sdk.log" 2>&1) || ERROR=1
+(cd "$TMPDIR/binutils" && sed -i 's|s/@prefix@/\\/gg/|s\|@prefix@\|'$PREFIX'\||g' Makefile && sed -i 's|/gg|'$PREFIX'|g' Makefile 2>&1) || ERROR=1
+(cd "$TMPDIR/binutils" && sed -i 's|include|\#include|g' Makefile 2>&1) || ERROR=1
+(cd "$TMPDIR/binutils" && sed -i 's|\.\/mkdist|mkdir dist|g' Makefile 2>&1) || ERROR=1
+(cd "$TMPDIR/binutils" && sed -i 's|cd dist\; ixrun Install|cd build\; \$\(MAKE\) install|g' Makefile 2>&1) || ERROR=1
+(cd "$TMPDIR/binutils" && sed -i 's|--target=ppc-morphos|--target=ppc-morphos --program-prefix=ppc-'$TYPE'-|g' Makefile 2>&1) || ERROR=1
 
-# Are we Mac OS X? Apply some dubious patches to try to get this to build...
-if [ "`uname`" = "Darwin" ]
-then
-	DARWINCFLAGS="-fno-builtin"
-
-	cat <<EOF | (cd "$TMPDIR/binutils/include" && patch -p0)
---- libiberty.h.orig    2015-06-19 16:07:57.000000000 +0300
-+++ libiberty.h 2015-08-12 20:56:54.000000000 +0300
-@@ -108,7 +108,7 @@
-
- /* Exit, calling all the functions registered with xatexit.  */
-
--#ifndef __GNUC__
-+#ifndef __NOTREALLYGNUC__
- extern void xexit PARAMS ((int status));
- #else
- typedef void libiberty_voidfn PARAMS ((int status));
-EOF
-
-	cat <<EOF | (cd "$TMPDIR/binutils/libiberty" && patch -p0)
---- strerror.c.orig     2015-06-19 16:07:59.000000000 +0300
-+++ strerror.c  2015-08-12 20:59:35.000000000 +0300
-@@ -466,7 +466,7 @@
-
- #else
-
--extern int sys_nerr;
-+extern const int sys_nerr;
- extern char *sys_errlist[];
-
- #endif
-EOF
-
-fi
-
-test -z "$ERROR" && (cd "$TMPDIR/binutils/build" && make CFLAGS="-m32 -O2 -U_FORTIFY_SOURCE $DARWINCFLAGS" >>"$CURDIR/setup-cross-sdk.log" 2>&1) || ERROR=1
-test -z "$ERROR" && (cd "$TMPDIR/binutils/build" && make install >>"$CURDIR/setup-cross-sdk.log" 2>&1) || ERROR=1
+test -z "$ERROR" && (cd "$TMPDIR/binutils" && make >>"$CURDIR/setup-cross-sdk.log" 2>&1) || ERROR=1
+test -z "$ERROR" && (cd "$TMPDIR/binutils" && make install >>"$CURDIR/setup-cross-sdk.log" 2>&1) || ERROR=1
 
 if [ ! -z "$ERROR" ]
 then
@@ -311,110 +297,41 @@ then
 fi
 
 # Set up required Binutils symlinks
-mkdir -p $PREFIX/ppc-$TYPE/bin
+#mkdir -p $PREFIX/ppc-$TYPE/bin
 
-for i in ar as ld nm objdump ranlib
-do
-	ln -s $PREFIX/bin/ppc-$TYPE-$i $PREFIX/ppc-$TYPE/bin/$i
-done
+#for i in ar as ld nm objdump ranlib
+#do
+#	ln -s $PREFIX/bin/ppc-$TYPE-$i $PREFIX/ppc-$TYPE/bin/$i
+#	ln -sf $PREFIX/bin/ppc-$TYPE-$i $PREFIX/ppc-morphos/bin/$i
+#done
 
-# Build GCC 4
 echo "Building $GCCVER."
 
-if [ $GCCVER == "gcc4" ]
-then
-
-test -z "$ERROR" && (cd "$TMPDIR/gcc4" && make gcc4_unpack >>"$CURDIR/setup-cross-sdk.log" 2>&1) || ERROR=1
-
-# Are we Mac OS X? Apply some dubious patches to try to get this to build...
-if [ "`uname`" = "Darwin" ]
-then
-	test -z "$ERROR" && (cd "$TMPDIR/gcc4" && make mpfr_unpack >"$CURDIR/setup-cross-sdk.log" 2>&1) || ERROR=1
-
-	cat <<EOF | (cd "$TMPDIR/gcc4" && patch -p0) >>"$CURDIR/setup-cross-sdk.log" 2>&1
---- Makefile.orig       2015-06-19 16:09:13.000000000 +0300
-+++ Makefile    2015-08-12 21:32:17.000000000 +0300
-@@ -85,7 +85,7 @@
- 
- # GCC v4
- 
--gcc4: gmp_install mpfr_install gcc4_unpack gcc4_patch gcc4_dir gcc4_configure gcc4_make
-+gcc4: mpfr_install gcc4_unpack gcc4_patch gcc4_dir gcc4_configure gcc4_make
- 
- GCC4_DIR = gcc-4.4.5
- 
-EOF
-
-	cat <<EOF | (cd "$TMPDIR/gcc4/mpfr-3.0.0" && patch -p0) >>"$CURDIR/setup-cross-sdk.log" 2>&1
---- mpfr.h.orig 2010-06-10 14:00:14.000000000 +0300
-+++ mpfr.h      2015-08-12 21:35:58.000000000 +0300
-@@ -23,6 +23,8 @@
- #ifndef __MPFR_H
- #define __MPFR_H
- 
-+#define __gmp_const const
-+
- /* Define MPFR version number */
- #define MPFR_VERSION_MAJOR 3
- #define MPFR_VERSION_MINOR 0
-EOF
-
-fi
-
-	cat <<EOF | (cd "$TMPDIR/gcc4/gcc-4.4.5/gcc" && patch -p0)
---- toplev.h.orig       2009-02-20 17:20:38.000000000 +0200
-+++ toplev.h    2015-08-12 21:24:42.000000000 +0300
-@@ -174,7 +174,7 @@
- extern int floor_log2                  (unsigned HOST_WIDE_INT);
- 
- /* Inline versions of the above for speed.  */
--#if GCC_VERSION >= 3004
-+#if NOTREALLYGCC_VERSION >= 3004
- # if HOST_BITS_PER_WIDE_INT == HOST_BITS_PER_LONG
- #  define CLZ_HWI __builtin_clzl
- #  define CTZ_HWI __builtin_ctzl
-EOF
-
-	test -z "$ERROR" && (cd "$TMPDIR/gcc4" && sed "s,../configure --target=ppc-morphos.*$,& MAKEINFO=missing," <Makefile >Makefile.new && mv Makefile.new Makefile) || ERROR=1
-
-	test -z "$ERROR" && (cd "$TMPDIR/gcc4" && CC=gcc-5 CXX=g++-5 CPP=cpp-5 make >>"$CURDIR/setup-cross-sdk.log" 2>&1) || ERROR=1
-	test -z "$ERROR" && (cd "$TMPDIR/gcc4" && CC=gcc-5 CXX=g++-5 CPP=cpp-5 make install >>"$CURDIR/setup-cross-sdk.log" 2>&1) || ERROR=1
-
-	# Set up some GCC symlinks
-	ln -sf $PREFIX/bin/ppc-morphos-gcc-4 $PREFIX/bin/ppc-morphos-gcc
-	ln -sf $PREFIX/bin/ppc-morphos-g++-4 $PREFIX/bin/ppc-morphos-g++
-elif [ $GCCVER == "gcc5" ]
-then
-	cd "$TMPDIR/gcc5"
-	sed -i "s|/gg|$PREFIX|g" Makefile
-	sed -i "s|program-prefix=ppc-morphos-|program-prefix=ppc-"$TYPE"-|g" Makefile
-	test -z "$ERROR" && (cd "$TMPDIR/gcc5" && CC=gcc-5 CXX=g++-5 CPP=cpp-5 make >>"$CURDIR/setup-cross-sdk.log" 2>&1) || ERROR=1
-	test -z "$ERROR" && (cd "$TMPDIR/gcc5" && CC=gcc-5 CXX=g++-5 CPP=cpp-5 make install >>"$CURDIR/setup-cross-sdk.log" 2>&1) || ERROR=1
-
-	if [ -z "$WARPUP" ]
-	then
-		# Set up some GCC symlinks
-		ln -sf $PREFIX/bin/ppc-morphos-gcc-5 $PREFIX/bin/ppc-morphos-gcc
-		ln -sf $PREFIX/bin/ppc-morphos-g++-5 $PREFIX/bin/ppc-morphos-g++
-	else
-		printf "#!/bin/sh\nppc-warpos-gcc-5 --specs=/opt/ppc-warpos/lib/gcc-lib/ppc-morphos/5.3.0/specs \${@}" > $PREFIX/bin/ppc-warpos-gcc
-		chmod a+x $PREFIX/bin/ppc-warpos-gcc
-		printf "#!/bin/sh\nppc-warpos-g++-5 --specs=/opt/ppc-warpos/lib/gcc-lib/ppc-morphos/5.3.0/specs \${@}" > $PREFIX/bin/ppc-warpos-g++
-		chmod a+x $PREFIX/bin/ppc-warpos-g++
-	fi
-elif [ $GCCVER == "gcc6" ]
+if [ $GCCVER == "gcc6" ]
 then
 	cp $CURDIR/gcc-6-morphos.diff $TMPDIR/
 	sed -i "s|/gg|$PREFIX|g" $TMPDIR/gcc-6-morphos.diff
-	sed -i "s|ppc-morphos|ppc-$TYPE|g" $TMPDIR/gcc-6-morphos.diff
+	#sed -i "s|ppc-morphos|ppc-$TYPE|g" $TMPDIR/gcc-6-morphos.diff
 	(cd "$TMPDIR/gcc-6.5.0" && patch -p1 < $TMPDIR/gcc-6-morphos.diff)
 	mkdir $TMPDIR/build
-	test -z "$ERROR" && (cd $TMPDIR/build && ../gcc-6.5.0/configure --target=ppc-$TYPE --with-plugin-ld=no --enable-languages=c,c++,objc,obj-c++ --prefix=$PREFIX --with-sysroot=$PREFIX --libexecdir=$PREFIX/lib --oldincludedir=$PREFIX/include --program-prefix=ppc-$TYPE- --enable-threads=morphos --disable-bootstrap --with-pkgversion=GCC/MorphOS --with-bugurl=http://www.morphos-team.net/ >>"$CURDIR/setup-cross-sdk.log" 2>&1) || ERROR=1
+	test -z "$ERROR" && (cd $TMPDIR/build && ../gcc-6.5.0/configure --target=ppc-morphos --with-plugin-ld=no --enable-languages=c,c++,objc,obj-c++ --prefix=$PREFIX --with-sysroot=$PREFIX --libexecdir=$PREFIX/lib --oldincludedir=$PREFIX/include --program-prefix=ppc-$TYPE- --enable-threads=morphos --disable-bootstrap --with-pkgversion=GCC/MorphOS --with-bugurl=http://www.morphos-team.net/ >>"$CURDIR/setup-cross-sdk.log" 2>&1) || ERROR=1
 	test -z "$ERROR" && (cd $TMPDIR/build && make -j8 >>"$CURDIR/setup-cross-sdk.log" 2>&1) || ERROR=1
 	test -z "$ERROR" && (cd $TMPDIR/build && make install -j8 >>"$CURDIR/setup-cross-sdk.log" 2>&1) || ERROR=1
 else
-	echo "Unknown gcc version"
-	ERROR=1
+	cd "$TMPDIR/$GCCVER"
+	sed -i "s|/gg|$PREFIX|g" Makefile
+	sed -i "s|--target=ppc-morphos|--target=ppc-morphos --program-prefix=ppc-"$TYPE"-|g" Makefile
+        sed -i "s|--program-suffix=-2|--program-suffix=\"\"|g" Makefile
+        sed -i "s|--program-suffix=-3|--program-suffix=\"\"|g" Makefile
+        sed -i "s|--program-suffix=-4|--program-suffix=\"\"|g" Makefile
+        sed -i "s|--program-suffix=-5|--program-suffix=\"\"|g" Makefile
+        sed -i "s|--program-suffix=-6|--program-suffix=\"\"|g" Makefile
+        sed -i "s|--program-suffix=-7|--program-suffix=\"\"|g" Makefile
+	sed -i "s|--program-suffix=-8|--program-suffix=\"\"|g" Makefile
+
+	test -z "$ERROR" && (cd "$TMPDIR/$GCCVER" && make >>"$CURDIR/setup-cross-sdk.log" 2>&1) || ERROR=1
+	test -z "$ERROR" && (cd "$TMPDIR/$GCCVER" && make install >>"$CURDIR/setup-cross-sdk.log" 2>&1) || ERROR=1
+
 fi
 
 rm -rf $PREFIX/bin/ar $PREFIX/as $PREFIX/ld $PREFIX/nm $PREFIX/objdump $PREFIX/ranlib $PREFIX/strip
