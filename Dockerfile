@@ -4,4 +4,5 @@ WORKDIR /work
 
 COPY ./ /work/
 
-RUN ./toolchain-morphos 
+RUN ./toolchain-morphos
+RUN rm -rf /work/*
