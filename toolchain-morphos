@@ -39,7 +39,7 @@ GCCVER='gcc9'
 TYPE='morphos'
 PREFIX="/opt/ppc-$TYPE"
 CURDIR=$PWD
-gccarray=("gcc4\tgcc5\tgcc6\tgcc7\tgcc8\gcc9")
+gccarray=("gcc4\tgcc5\tgcc6\tgcc7\tgcc8\tgcc9")
 
 usage () {
 	printf "MorphOS/WarpOS Cross Toolchain v$VER\n"
