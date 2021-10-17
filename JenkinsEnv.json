@@ -1,0 +1,11 @@
+{
+    "builds": [
+        {
+            "DockerRoot": "amigadev",
+            "DockerImage": "morphos-cross-toolchain",
+            "DockerTag": "latest",
+            "Dockerfile": "Dockerfile",
+            "BuildIfSuccessful": "docker-amiga-gcc"
+        }
+    ]
+}

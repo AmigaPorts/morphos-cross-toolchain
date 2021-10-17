@@ -2,9 +2,26 @@ FROM amigadev/docker-base:latest as build-env
 
 WORKDIR /work
 
-COPY ./ /work/
-
-RUN ./toolchain-morphos && rm -rf /work/* 
+RUN mkdir -p /opt && \
+	git clone --depth 1 https://github.com/NetBSD/pkgsrc /work/pkgsrc && \
+	cd /work/pkgsrc/bootstrap && \
+	./bootstrap --prefix /opt --make-jobs $(nproc) && \
+	export PATH="/opt/sbin:/opt/bin:$PATH" && \
+	cd /work/pkgsrc/cross/ppc-morphos-gcc-10 && \
+	printf "ACCEPTABLE_LICENSES+= morphos-sdk-license\nACCEPTABLE_LICENSES+= lha-license\n" >> /opt/etc/mk.conf && \
+	sed -e 's|\${PREFIX}/gg|\${PREFIX}/ppc-morphos|' -i /work/pkgsrc/cross/ppc-morphos-gcc-10/Makefile && \
+	sed -e 's|gg/|ppc-morphos/|' -i /work/pkgsrc/cross/ppc-morphos-gcc-10/PLIST && \
+	sed -e 's|\${PREFIX}/gg|\${PREFIX}/ppc-morphos|' -i /work/pkgsrc/cross/ppc-morphos-binutils/Makefile && \
+	sed -e 's|gg/|ppc-morphos/|' -i /work/pkgsrc/cross/ppc-morphos-binutils/PLIST && \
+	sed -e 's|\${PREFIX}/gg|\${PREFIX}/ppc-morphos|' -i /work/pkgsrc/cross/ppc-morphos-sdk/Makefile && \
+	sed -e 's|gg/|ppc-morphos/|' -i /work/pkgsrc/cross/ppc-morphos-sdk/PLIST && \
+	bmake MAKE_JOBS=$(nproc) install clean-depends clean && \
+	ln -s /opt/ppc-morphos/bin/ppc-morphos-gcc-10 /opt/ppc-morphos/bin/ppc-morphos-gcc && \
+	ln -s /opt/ppc-morphos/bin/ppc-morphos-g++-10 /opt/ppc-morphos/bin/ppc-morphos-g++ && \
+	ln -s /opt/ppc-morphos/bin/ppc-morphos-c++-10 /opt/ppc-morphos/bin/ppc-morphos-c++ && \
+	ln -s /opt/ppc-morphos/bin/ppc-morphos-cpp-10 /opt/ppc-morphos/bin/ppc-morphos-cpp && \
+	ln -s /opt/ppc-morphos/bin/ppc-morphos-gcov-10 /opt/ppc-morphos/bin/ppc-morphos-gcov && \
+	rm -rf /work/*
 
 FROM amigadev/docker-base:latest
 
