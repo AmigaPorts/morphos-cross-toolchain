@@ -38,7 +38,7 @@ def killall_jobs() {
 	echo "Done killing"
 }
 
-def buildStep(DOCKER_ROOT, DOCKERIMAGE, DOCKERTAG, DOCKERFILE, BUILD_NEXT) {
+def buildStep(DOCKER_ROOT, DOCKERIMAGE, DOCKERTAG, DOCKERFILE, BUILD_NEXT, BUILD_PARAM) {
 	def fixed_job_name = env.JOB_NAME.replace('%2F','/')
 	try {
 		checkout scm;
@@ -67,7 +67,7 @@ def buildStep(DOCKER_ROOT, DOCKERIMAGE, DOCKERTAG, DOCKERFILE, BUILD_NEXT) {
 		}
 
 		if (!BUILD_NEXT.equals('')) {
-			build "${BUILD_NEXT}/${env.BRANCH_NAME}";
+			build job: "${BUILD_NEXT}/${env.BRANCH_NAME}", wait: false, parameters: [string(name: 'BUILD_IMAGE', value: String.valueOf(BUILD_PARAM))]
 		}
 	} catch(err) {
 		slackSend color: "danger", channel: "#jenkins", message: "Build Failed: ${fixed_job_name} #${env.BUILD_NUMBER} Target: ${DOCKER_ROOT}/${DOCKERIMAGE}:${tag} (<${env.BUILD_URL}|Open>)"
@@ -90,7 +90,7 @@ node('master') {
 	project.builds.each { v ->
 		branches["Build ${v.DockerRoot}/${v.DockerImage}:${v.DockerTag}"] = { 
 			node {
-				buildStep(v.DockerRoot, v.DockerImage, v.DockerTag, v.Dockerfile, v.BuildIfSuccessful)
+				buildStep(v.DockerRoot, v.DockerImage, v.DockerTag, v.Dockerfile, v.BuildIfSuccessful, v.BuildParam)
 			}
 		}
 	}
