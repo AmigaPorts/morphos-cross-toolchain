@@ -2,7 +2,7 @@
     "builds": [
         {
             "DockerRoot": "amigadev",
-            "DockerImage": "morphos-cross-toolchain",
+            "DockerImage": "ppc-morphos",
             "DockerTag": "latest",
             "Dockerfile": "Dockerfile",
             "BuildIfSuccessful": "docker-amiga-gcc",
