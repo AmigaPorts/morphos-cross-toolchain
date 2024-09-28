@@ -5,7 +5,13 @@
             "DockerImage": "ppc-morphos",
             "DockerTag": "latest",
             "Dockerfile": "Dockerfile",
-            "BuildIfSuccessful": "docker-amiga-gcc",
+            "Platforms": [
+                "amd64",
+                "arm64"
+            ],
+            "BuildIfSuccessful": [
+                "docker-amiga-gcc"
+            ],
             "BuildParam": "ppc-morphos"
         }
     ]
