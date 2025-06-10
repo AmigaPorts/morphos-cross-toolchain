@@ -1,6 +1,8 @@
 FROM amigadev/docker-base:latest as build-env
-
+ARG BUILDDATE
 WORKDIR /work
+
+COPY . .
 
 RUN mkdir -p /opt && \
 	git clone --depth 1 https://github.com/NetBSD/pkgsrc /work/pkgsrc && \
